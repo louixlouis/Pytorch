@@ -43,4 +43,8 @@ if __name__ == '__main__':
 
     # Optimizer.
     optim = torch.optim.Adam(u_net.parameters(), lr=args.lr)
-    
+
+    # Training loop
+    for epoch in range(10):
+        u_net.train()
+        
