@@ -43,5 +43,6 @@ class CasiaWebFace(ImageFolder):
             if self.transform is not None:
                 sample = self.transform(sample)
                 sample_label = self.transform(sample_label)
- 
+
+            #data = {'mask':sample, 'label':sample_label}
             return sample, sample_label

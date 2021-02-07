@@ -40,9 +40,10 @@ if __name__ == '__main__':
     # Dataloader
     transform = transforms.Compose(
         [
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), # normalize
             transforms.RandomHorizontalFlip(p=0.5),                 # Horizontal flip
+            #The ToTensor transform should come before the Normalize transform.
             transforms.ToTensor(),                                  # To pytorch tensor
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), # normalize
         ]
     )
             
@@ -51,7 +52,7 @@ if __name__ == '__main__':
         label_root = os.path.join(args.data_dir, 'label_train'), 
         transform = transform)    
 
-    loader_train = DataLoader(dataset_train, batch_size=args.batch_size)
+    loader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True)
 
     num_data = len(dataset_train)
     num_epoch = np.ceil(num_data / args.batch_size)
@@ -59,12 +60,11 @@ if __name__ == '__main__':
     print(f'Number of data:     {num_data}')
     print(f'Number of epochs:   {num_epoch}')
     
-
     # Model load.
     u_net = Unet().to(device)
     
     # loss
-    loss = nn.BCEWithLogitsLoss().to(device)
+    bce_loss = nn.BCEWithLogitsLoss().to(device)
 
     # Optimizer.
     optim = torch.optim.Adam(u_net.parameters(), lr=args.lr)
@@ -86,15 +86,16 @@ if __name__ == '__main__':
         loss_history = []
         cur_epoch_data_loader_casia = iter(loader_train)
         for i in range(max_num_iters):
+        #for batch, data in enumerate(loader_train, 1):
             # Forward.
             mask_tensor, label_tensor = next(cur_epoch_data_loader_casia)
-            mask_tensor, label_tensor = mask_tensor.to(device). label_tensor.to(device)
+            mask_tensor, label_tensor = mask_tensor.to(device), label_tensor.to(device)
 
             output_tensor = u_net(mask_tensor)
 
             # Backward.
             optim.zero_grad()
-            loss = loss(output_tensor, label_tensor)
+            loss = bce_loss(output_tensor, label_tensor)
             loss.backward()
             optim.step()
 
@@ -106,16 +107,16 @@ if __name__ == '__main__':
             inputs = to_numpy(denorm(mask_tensor, 0.5, 0.5))
             output = to_numpy(classifier(output_tensor))
 
-            tensorboard_train.add_image('label', label, args.num_epoch * epoch + i, dataformats='NHWC')
-            tensorboard_train.add_image('input', inputs, args.num_epoch * epoch + i, dataformats='NHWC')
-            tensorboard_train.add_image('output', output, args.num_epoch * epoch + i, dataformats='NHWC')
+            tensorboard_train.add_image('label', label, args.num_epoch * (epoch) + i, dataformats='NHWC')
+            tensorboard_train.add_image('input', inputs, args.num_epoch * (epoch) + i, dataformats='NHWC')
+            tensorboard_train.add_image('output', output, args.num_epoch * (epoch) + i, dataformats='NHWC')
 
             print(f'EPOCH : [{epoch+1}]/[{num_epoch}]')
             print(f'ITERATION : [{i+1}]/[{max_num_iters}]')
             print(f'LOSS : {loss}')
-
+            print('-'*40)
             # Save the model.
             if i % 1000 == 0:
-                u_net.save_checkpoint(args.checkpoint_dir, u_net, optim, epoch, i)
+                u_net.save_checkpoint('./checkpoint', u_net, optim, epoch, i)
 
         tensorboard_train.add_scalar('loss', np.mean(loss_history), epoch)
